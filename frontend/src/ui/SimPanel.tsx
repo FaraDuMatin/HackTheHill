@@ -53,11 +53,21 @@ function Delta({ row, before, after }: { row: Row; before: number | null; after:
   )
 }
 
-function skippedLabel(s: Skipped, edits: Edit[]) {
-  const edit = edits.find((e) =>
-    s.key ? 'key' in e && e.key === s.key : 'wayId' in e && e.wayId === s.way_id,
-  )
-  return `${edit ? describeEdit(edit) : s.kind}: ${s.reason}`
+/** One line per edit that had no effect. A road edit counts only if none of its ways applied. */
+function notApplied(skipped: Skipped[], edits: Edit[]): string[] {
+  const out = new Set<string>()
+  for (const e of edits) {
+    if (e.type === 'unblock_road') continue
+    if ('wayIds' in e) {
+      const kind = e.type === 'set_lanes' ? 'lanes' : 'block'
+      const hits = skipped.filter((s) => s.kind === kind && e.wayIds.includes(s.way_id!))
+      if (hits.length && hits.length >= e.wayIds.length) out.add(`${describeEdit(e)}: ${hits[0].reason}`)
+    } else {
+      const hit = skipped.find((s) => s.key === e.key)
+      if (hit) out.add(`${describeEdit(e)}: ${hit.reason}`)
+    }
+  }
+  return [...out]
 }
 
 export default function SimPanel(p: Props) {
@@ -146,14 +156,14 @@ export default function SimPanel(p: Props) {
             </tbody>
           </table>
 
-          {!!p.sim.job.result.applied?.skipped.length && (
+          {notApplied(p.sim.job.result.applied?.skipped ?? [], p.edits).length > 0 && (
             <div className="warn small" role="status">
               <p>
                 <AlertTriangle size={14} /> Not applied:
               </p>
               <ul>
-                {p.sim.job.result.applied.skipped.map((s, i) => (
-                  <li key={i}>{skippedLabel(s, p.edits)}</li>
+                {notApplied(p.sim.job.result.applied?.skipped ?? [], p.edits).map((line) => (
+                  <li key={line}>{line}</li>
                 ))}
               </ul>
             </div>

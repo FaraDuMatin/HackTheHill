@@ -158,6 +158,11 @@ export default function Sidebar(p: Props) {
           {p.edits.map((e, i) => (
             <li key={i}>
               <span>{describeEdit(e)}</span>
+              {e.by === 'ai' && (
+                <span className="tag" title="Made by the AI assistant">
+                  AI
+                </span>
+              )}
               <button className="icon" aria-label={`Revert: ${describeEdit(e)}`} title="Revert" onClick={() => p.onRemoveEdit(i)}>
                 <X size={14} />
               </button>

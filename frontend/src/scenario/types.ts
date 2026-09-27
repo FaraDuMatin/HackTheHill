@@ -1,12 +1,14 @@
 export type LngLat = [number, number]
 
-export type Edit =
-  | { type: 'block_road'; wayId: number; name: string }
-  | { type: 'unblock_road'; wayId: number; name: string }
-  | { type: 'set_lanes'; wayId: number; name: string; from: number; lanes: number }
+/** A road is one or more OSM ways (the AI edits whole named roads). */
+export type Edit = (
+  | { type: 'block_road'; wayIds: number[]; name: string }
+  | { type: 'unblock_road'; wayIds: number[]; name: string }
+  | { type: 'set_lanes'; wayIds: number[]; name: string; from?: number; lanes: number }
   | { type: 'add_signal'; key: string; at: LngLat }
   | { type: 'remove_signal'; key: string; at: LngLat }
   | { type: 'move_signal'; key: string; from: LngLat; to: LngLat }
+) & { by?: 'ai' }
 
 /** Folded result of an edit list. This is what the backend receives. */
 export interface ScenarioState {

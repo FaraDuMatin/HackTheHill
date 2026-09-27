@@ -3,6 +3,8 @@ import threading
 from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel
 
+from .agent.agent import run_agent
+from .agent.places import places
 from .sim import runner
 from .sim.extract import nearest_junction
 
@@ -14,7 +16,11 @@ app = FastAPI()
 @app.on_event("startup")
 def warm_up():
     # Build the roads-only extract and intersection index before the first request needs them.
-    threading.Thread(target=lambda: nearest_junction(0, 0, 0), daemon=True).start()
+    def warm():
+        nearest_junction(0, 0, 0)
+        places()
+
+    threading.Thread(target=warm, daemon=True).start()
 
 
 @app.get("/api/health")
@@ -57,3 +63,18 @@ def snap(lng: float, lat: float):
     """Nearest road intersection within SNAP_M, or null."""
     at = nearest_junction(lng, lat, SNAP_M)
     return {"at": list(at) if at else None}
+
+
+class AgentRequest(BaseModel):
+    message: str
+    history: list[dict] = []  # [{role: user|assistant, content}]
+    bbox: list[float] | None = None
+    edits: list[str] = []  # human-readable current edits
+
+
+@app.post("/api/agent")
+def agent(req: AgentRequest):
+    try:
+        return run_agent(req.message, req.history, req.bbox, req.edits)
+    except OSError as e:
+        raise HTTPException(503, f"AI model unavailable (is Ollama running?): {e}")

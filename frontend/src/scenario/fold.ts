@@ -9,13 +9,13 @@ export function fold(edits: Edit[]): ScenarioState {
   for (const e of edits) {
     switch (e.type) {
       case 'block_road':
-        blocked.add(e.wayId)
+        e.wayIds.forEach((w) => blocked.add(w))
         break
       case 'unblock_road':
-        blocked.delete(e.wayId)
+        e.wayIds.forEach((w) => blocked.delete(w))
         break
       case 'set_lanes':
-        lanes[e.wayId] = e.lanes
+        e.wayIds.forEach((w) => (lanes[w] = e.lanes))
         break
       case 'add_signal':
         added[e.key] = e.at
@@ -54,7 +54,7 @@ export function describeEdit(e: Edit): string {
     case 'unblock_road':
       return `Unblocked ${e.name}`
     case 'set_lanes':
-      return `${e.name}: ${e.from} → ${e.lanes} lanes`
+      return e.from == null ? `${e.name}: ${e.lanes} lanes` : `${e.name}: ${e.from} → ${e.lanes} lanes`
     case 'add_signal':
       return 'Added traffic signal'
     case 'remove_signal':

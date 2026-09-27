@@ -3,8 +3,10 @@ import type * as maplibregl from 'maplibre-gl'
 import MapView from './map/MapView'
 import Sidebar, { MAX_LANES, MIN_LANES, type Actions } from './ui/Sidebar'
 import SimPanel from './ui/SimPanel'
+import ChatPanel from './ui/ChatPanel'
+import type { AgentAction } from './agent/api'
 import { useScenario } from './scenario/useScenario'
-import { toBackend } from './scenario/fold'
+import { describeEdit, fold, toBackend } from './scenario/fold'
 import { snap, type BBox } from './sim/api'
 import { useSimulation } from './sim/useSimulation'
 import type { LngLat, Mode, Selection } from './scenario/types'
@@ -58,11 +60,11 @@ export default function App() {
   const actions: Actions = {
     toggleBlock: () => {
       if (!road) return
-      scenario.apply({ type: blocked ? 'unblock_road' : 'block_road', wayId: road.wayId, name: road.name })
+      scenario.apply({ type: blocked ? 'unblock_road' : 'block_road', wayIds: [road.wayId], name: road.name })
     },
     setLanes: (n) => {
       if (!road || n < MIN_LANES || n > MAX_LANES) return
-      scenario.apply({ type: 'set_lanes', wayId: road.wayId, name: road.name, from: lanes, lanes: n })
+      scenario.apply({ type: 'set_lanes', wayIds: [road.wayId], name: road.name, from: lanes, lanes: n })
     },
     removeSignal: () => {
       if (!signal) return
@@ -89,6 +91,24 @@ export default function App() {
       setSelection({ kind: 'signal', key, at: snapped })
     } else if (mode === 'move-signal' && signal) {
       await moveSignal(signal.key, scenario.state.added[signal.key] ?? signal.at, at)
+    }
+  }
+
+  const applyAgentActions = (actions: AgentAction[]) => {
+    // State updates are async, so compute what a requested run should see directly.
+    let edits = scenario.edits
+    let bbox = area
+    for (const a of actions) {
+      if (a.type === 'edit') {
+        scenario.apply(a.edit)
+        edits = [...edits, a.edit]
+      } else if (a.type === 'select_area') {
+        bbox = a.bbox
+        setArea(a.bbox)
+        map?.fitBounds([a.bbox[0], a.bbox[1], a.bbox[2], a.bbox[3]], { padding: { top: 40, bottom: 40, left: 360, right: 40 } })
+      } else if (a.type === 'run_simulation' && bbox && areaKm2(bbox) <= MAX_AREA_KM2 && sim.kind !== 'running') {
+        run(bbox, toBackend(fold(edits)))
+      }
     }
   }
 
@@ -163,6 +183,7 @@ export default function App() {
           />
         }
       />
+      <ChatPanel area={area} edits={scenario.edits.map(describeEdit)} onActions={applyAgentActions} />
     </>
   )
 }
