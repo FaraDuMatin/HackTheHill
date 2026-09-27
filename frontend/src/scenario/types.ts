@@ -22,4 +22,4 @@ export type Selection =
   | { kind: 'road'; wayId: number; name: string; highway: string; lanes: number; oneway: boolean }
   | { kind: 'signal'; key: string; at: LngLat }
 
-export type Mode = 'select' | 'add-signal' | 'move-signal'
+export type Mode = 'select' | 'add-signal' | 'move-signal' | 'select-area'

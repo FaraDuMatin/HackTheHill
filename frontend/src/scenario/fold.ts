@@ -42,8 +42,8 @@ export function toBackend(s: ScenarioState) {
   return {
     blocked: s.blocked,
     lanes: s.lanes,
-    signals_added: Object.values(s.added),
-    signals_removed: Object.values(s.removed),
+    signals_added: Object.entries(s.added).map(([key, at]) => ({ key, at })),
+    signals_removed: Object.entries(s.removed).map(([key, at]) => ({ key, at })),
   }
 }
 

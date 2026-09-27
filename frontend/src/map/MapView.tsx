@@ -5,6 +5,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { mapStyle } from './style'
 import type { LngLat, Mode, ScenarioState, Selection } from '../scenario/types'
+import type { BBox } from '../sim/api'
 
 maplibregl.setWorkerUrl(workerUrl)
 const protocol = new Protocol()
@@ -28,7 +29,34 @@ interface Props {
   onSelect: (s: Selection | null) => void
   onPlace: (at: LngLat) => void
   onMoveSignal: (key: string, from: LngLat, to: LngLat) => void
+  area: BBox | null
+  onArea: (bbox: BBox) => void
 }
+
+const bboxOf = (a: LngLat, b: LngLat): BBox => [
+  Math.min(a[0], b[0]),
+  Math.min(a[1], b[1]),
+  Math.max(a[0], b[0]),
+  Math.max(a[1], b[1]),
+]
+
+type GeoJSONData = Parameters<maplibregl.GeoJSONSource['setData']>[0]
+
+const areaData = (b: BBox | null): GeoJSONData => ({
+  type: 'FeatureCollection',
+  features: b
+    ? [
+        {
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'Polygon',
+            coordinates: [[[b[0], b[1]], [b[2], b[1]], [b[2], b[3]], [b[0], b[3]], [b[0], b[1]]]],
+          },
+        },
+      ]
+    : [],
+})
 
 function toSelection(f: maplibregl.MapGeoJSONFeature): Selection {
   const p = f.properties
@@ -48,14 +76,14 @@ function toSelection(f: maplibregl.MapGeoJSONFeature): Selection {
   return { kind: 'signal', key, at }
 }
 
-export default function MapView({ state, selection, mode, onSelect, onPlace, onMoveSignal }: Props) {
+export default function MapView({ state, selection, mode, onSelect, onPlace, onMoveSignal, area, onArea }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const [loaded, setLoaded] = useState(false)
   // Latest props for map event handlers registered once.
-  const live = useRef({ mode, onSelect, onPlace, onMoveSignal })
+  const live = useRef({ mode, onSelect, onPlace, onMoveSignal, onArea })
   useEffect(() => {
-    live.current = { mode, onSelect, onPlace, onMoveSignal }
+    live.current = { mode, onSelect, onPlace, onMoveSignal, onArea }
   })
 
   useEffect(() => {
@@ -72,6 +100,7 @@ export default function MapView({ state, selection, mode, onSelect, onPlace, onM
 
     map.on('click', (e) => {
       const { mode, onSelect, onPlace } = live.current
+      if (mode === 'select-area') return
       if (mode !== 'select') return onPlace([e.lngLat.lng, e.lngLat.lat])
       const [f] = map.queryRenderedFeatures(hitBox(e.point), { layers: CLICKABLE })
       onSelect(f ? toSelection(f) : null)
@@ -85,8 +114,17 @@ export default function MapView({ state, selection, mode, onSelect, onPlace, onM
         features: at ? [{ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: at } }] : [],
       })
     const cursor = (c: string) => (map.getCanvas().style.cursor = c)
+    const setArea = (b: BBox | null) => (map.getSource('area') as maplibregl.GeoJSONSource).setData(areaData(b))
+
+    // Drag a rectangle to select the simulation area.
+    let areaDrag: { start: LngLat; startPx: maplibregl.Point } | null = null
 
     map.on('mousedown', (e) => {
+      if (live.current.mode === 'select-area') {
+        e.preventDefault()
+        areaDrag = { start: [e.lngLat.lng, e.lngLat.lat], startPx: e.point }
+        return
+      }
       if (live.current.mode !== 'select') return
       const [f] = map.queryRenderedFeatures(hitBox(e.point), { layers: SIGNAL_LAYERS })
       if (!f) return
@@ -96,6 +134,7 @@ export default function MapView({ state, selection, mode, onSelect, onPlace, onM
       cursor('grabbing')
     })
     map.on('mousemove', (e) => {
+      if (areaDrag) return void setArea(bboxOf(areaDrag.start, [e.lngLat.lng, e.lngLat.lat]))
       if (drag) {
         drag.moved ||= drag.start.dist(e.point) > DRAG_PX
         if (drag.moved) setGhost([e.lngLat.lng, e.lngLat.lat])
@@ -107,6 +146,12 @@ export default function MapView({ state, selection, mode, onSelect, onPlace, onM
       else cursor('')
     })
     map.on('mouseup', (e) => {
+      if (areaDrag) {
+        const a = areaDrag
+        areaDrag = null
+        if (a.startPx.dist(e.point) > DRAG_PX * 4) live.current.onArea(bboxOf(a.start, [e.lngLat.lng, e.lngLat.lat]))
+        return
+      }
       if (!drag) return
       const d = drag
       drag = null
@@ -122,6 +167,11 @@ export default function MapView({ state, selection, mode, onSelect, onPlace, onM
     const map = mapRef.current
     if (map) map.getCanvas().style.cursor = mode === 'select' ? '' : 'crosshair'
   }, [mode])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (map && loaded) (map.getSource('area') as maplibregl.GeoJSONSource).setData(areaData(area))
+  }, [area, loaded])
 
   useEffect(() => {
     const map = mapRef.current

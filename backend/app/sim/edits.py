@@ -3,9 +3,12 @@
 scenario = {
     "blocked": [osm_way_id, ...],
     "lanes": {osm_way_id: total_lanes, ...},
-    "signals_added": [[lng, lat], ...],
-    "signals_removed": [[lng, lat], ...],
+    "signals_added": [{"key": str, "at": [lng, lat]}, ...],
+    "signals_removed": [{"key": str, "at": [lng, lat]}, ...],
 }
+
+Edits that cannot be applied are returned in "skipped" with a reason, never
+silently dropped.
 """
 import math
 from collections import defaultdict
@@ -15,7 +18,9 @@ import sumolib
 
 from .pipeline import BIN, _run
 
-SNAP_M = 40  # max distance from a clicked point to a SUMO junction
+SNAP_M = 40  # max distance from a signal point to a SUMO junction
+
+NOT_IN_AREA = "Road is outside the simulated area or not drivable"
 
 
 def _edges_by_way(net):
@@ -27,12 +32,14 @@ def _edges_by_way(net):
     return by_way
 
 
-def _nearest_junction(net, lng, lat, signalized):
+def _ways_of(edge):
+    return [w.lstrip("-") for w in (edge.getLanes()[0].getParam("origId") or "").split()]
+
+
+def _nearest_junction(net, lng, lat):
     x, y = net.convertLonLat2XY(lng, lat)
     best, best_d = None, SNAP_M
     for node in net.getNodes():
-        if (node.getType() == "traffic_light") != signalized:
-            continue
         nx, ny = node.getCoord()
         d = math.hypot(nx - x, ny - y)
         if d < best_d:
@@ -41,26 +48,52 @@ def _nearest_junction(net, lng, lat, signalized):
 
 
 def apply_scenario(base_net, scenario, out_net):
-    """Write out_net = base_net + scenario. Returns what was applied."""
+    """Write out_net = base_net + scenario. Returns what was applied and skipped."""
     net = sumolib.net.readNet(str(base_net), withInternal=False)
     by_way = _edges_by_way(net)
     work = Path(out_net).parent
+    skipped = []
 
-    removed = sorted({e.getID() for w in scenario.get("blocked", []) for e in by_way.get(str(w), [])})
+    removed = set()
+    for way in scenario.get("blocked", []):
+        edges = by_way.get(str(way), [])
+        if not edges:
+            skipped.append({"kind": "block", "way_id": way, "reason": NOT_IN_AREA})
+        removed |= {e.getID() for e in edges}
+    # netconvert may merge several OSM ways into one edge: report every way actually closed.
+    affected_ways = sorted({int(w) for e in net.getEdges() if e.getID() in removed for w in _ways_of(e)})
 
     lane_rows = []
     for way, total in scenario.get("lanes", {}).items():
-        edges = by_way.get(str(way), [])
+        edges = [e for e in by_way.get(str(way), []) if e.getID() not in removed]
+        if not edges:
+            skipped.append({"kind": "lanes", "way_id": int(way), "reason": NOT_IN_AREA})
+            continue
         two_way = any(e.getID().startswith("-") for e in edges) and any(not e.getID().startswith("-") for e in edges)
         per_dir = max(1, int(total) // 2) if two_way else max(1, int(total))
-        lane_rows += [f'  <edge id="{e.getID()}" numLanes="{per_dir}"/>' for e in edges if e.getID() not in removed]
+        lane_rows += [f'  <edge id="{e.getID()}" numLanes="{per_dir}"/>' for e in edges]
 
-    tls_set = {j.getID() for p in scenario.get("signals_added", []) if (j := _nearest_junction(net, *p, False))}
-    tls_unset = {j.getID() for p in scenario.get("signals_removed", []) if (j := _nearest_junction(net, *p, True))}
+    def junctions(items, want_signal, kind, reason):
+        found = {}
+        for s in items:
+            j = _nearest_junction(net, *s["at"])
+            if j is None:
+                skipped.append({"kind": kind, "key": s["key"], "reason": "No intersection within 40 m in the simulated area"})
+            elif (j.getType() == "traffic_light") != want_signal:
+                skipped.append({"kind": kind, "key": s["key"], "reason": reason})
+            else:
+                found[j.getID()] = s["key"]
+        return found
+
+    tls_unset = junctions(scenario.get("signals_removed", []), True, "remove_signal", "No signal at this intersection in SUMO")
+    tls_set = junctions(scenario.get("signals_added", []), False, "add_signal", "Intersection already has a signal")
+    # A signal moved within the same intersection: no change.
+    for j in set(tls_set) & set(tls_unset):
+        del tls_set[j], tls_unset[j]
 
     args = [BIN / "netconvert", "-s", base_net, "-o", out_net, "--no-warnings"]
     if removed:
-        args += ["--remove-edges.explicit", ",".join(removed)]
+        args += ["--remove-edges.explicit", ",".join(sorted(removed))]
     if lane_rows:
         patch = work / "patch.edg.xml"
         patch.write_text("<edges>\n" + "\n".join(lane_rows) + "\n</edges>\n")
@@ -74,8 +107,10 @@ def apply_scenario(base_net, scenario, out_net):
     _run(args)
 
     return {
-        "removed_edges": removed,
+        "removed_edges": len(removed),
+        "affected_ways": affected_ways,
         "lane_edges": len(lane_rows),
-        "tls_set": sorted(tls_set),
-        "tls_unset": sorted(tls_unset),
+        "signals_added": len(tls_set),
+        "signals_removed": len(tls_unset),
+        "skipped": skipped,
     }

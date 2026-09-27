@@ -152,3 +152,139 @@
 .small {
   font-size: 12px;
 }
+
+.sidebar button.primary {
+  background: #1f78b4;
+  border-color: #1f78b4;
+  color: #fff;
+}
+
+.sidebar button.primary:hover:not(:disabled) {
+  background: #19639a;
+}
+
+.sidebar button.primary kbd {
+  color: #1f78b4;
+}
+
+.warn {
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: #fdf1e7;
+  color: #8a4a0b;
+}
+
+.warn ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+.warn svg,
+.stages svg {
+  vertical-align: -2px;
+}
+
+.stages {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+}
+
+.stages li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+}
+
+.stages li.todo {
+  color: #888;
+}
+
+.stages li.active {
+  font-weight: 600;
+}
+
+.stages .dot {
+  width: 14px;
+  text-align: center;
+}
+
+.stages .dot::before {
+  content: '·';
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
+}
+
+.results table {
+  width: 100%;
+  margin: 8px 0;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.results th,
+.results td {
+  padding: 4px 3px;
+  white-space: nowrap;
+  border-bottom: 1px solid #eee;
+  text-align: right;
+}
+
+.results th[scope='row'],
+.results thead th:first-child {
+  text-align: left;
+  white-space: normal;
+  font-weight: 500;
+}
+
+.results thead th {
+  font-size: 11px;
+  color: #555;
+  font-weight: 600;
+}
+
+.delta {
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.delta.better {
+  color: #1f5f99;
+}
+
+.delta.worse {
+  color: #b2182b;
+}
+
+.delta.same {
+  color: #666;
+  font-weight: 400;
+}
+
+.sr-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.disclaimer {
+  color: #666;
+  font-style: italic;
+}

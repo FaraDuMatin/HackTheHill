@@ -33,12 +33,17 @@ export const mapStyle: StyleSpecification = {
     signals: { type: 'geojson', data: '/tiles/signals.geojson' },
     'user-signals': { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
     'drag-ghost': { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
+    area: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
   },
   layers: [
     { id: 'background', type: 'background', paint: { 'background-color': '#eceae4' } },
     {
       id: 'water', type: 'fill', source: 'city', 'source-layer': 'water',
       paint: { 'fill-color': '#a9cbe6' },
+    },
+    {
+      id: 'area-fill', type: 'fill', source: 'area',
+      paint: { 'fill-color': '#1f78b4', 'fill-opacity': 0.06 },
     },
     {
       id: 'roads-selected', type: 'line', source: 'city', 'source-layer': 'roads',
@@ -84,6 +89,10 @@ export const mapStyle: StyleSpecification = {
       id: 'user-signal-selected', type: 'circle', source: 'user-signals',
       filter: ['==', ['get', 'key'], ''],
       paint: { 'circle-radius': 12, 'circle-color': 'transparent', 'circle-stroke-color': '#1f78b4', 'circle-stroke-width': 3 },
+    },
+    {
+      id: 'area-line', type: 'line', source: 'area',
+      paint: { 'line-color': '#1f78b4', 'line-width': 2, 'line-dasharray': [3, 2] },
     },
     {
       id: 'drag-ghost', type: 'circle', source: 'drag-ghost',

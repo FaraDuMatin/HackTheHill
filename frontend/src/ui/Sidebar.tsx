@@ -27,6 +27,14 @@ interface Props {
   onUndo: () => void
   onRedo: () => void
   onMode: (m: Mode) => void
+  notice: string | null
+  simPanel: ReactNode
+}
+
+const HINTS: Record<Exclude<Mode, 'select'>, string> = {
+  'add-signal': 'Click an intersection to add a signal.',
+  'move-signal': 'Click the new signal location.',
+  'select-area': 'Drag a rectangle on the map.',
 }
 
 function Btn({ icon, label, kbd, ...rest }: { icon: ReactNode; label?: string; kbd?: string } & ButtonHTMLAttributes<HTMLButtonElement>) {
@@ -68,8 +76,14 @@ export default function Sidebar(p: Props) {
 
       {mode !== 'select' && (
         <p className="hint" role="status">
-          {mode === 'add-signal' ? 'Click an intersection to add a signal.' : 'Click the new signal location.'}{' '}
+          {HINTS[mode]}{' '}
           <kbd>Esc</kbd> to cancel.
+        </p>
+      )}
+
+      {p.notice && (
+        <p className="warn" role="alert">
+          {p.notice}
         </p>
       )}
 
@@ -151,6 +165,8 @@ export default function Sidebar(p: Props) {
           ))}
         </ol>
       </section>
+
+      {p.simPanel}
     </aside>
   )
 }
