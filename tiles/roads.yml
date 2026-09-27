@@ -1,0 +1,49 @@
+schema_name: Ottawa-Gatineau roads
+attribution: '<a href="https://www.openstreetmap.org/copyright" target="_blank">&copy; OpenStreetMap contributors</a>'
+sources:
+  osm:
+    type: osm
+    local_path: data/city.osm.pbf
+layers:
+  - id: water
+    features:
+      - source: osm
+        geometry: polygon
+        min_zoom: 8
+        include_when:
+          natural: water
+          waterway: riverbank
+  - id: roads
+    features:
+      - source: osm
+        geometry: line
+        min_zoom:
+          default_value: 13
+          overrides:
+            8:
+              highway: [motorway, trunk]
+            10:
+              highway: [primary, secondary, motorway_link, trunk_link]
+            12:
+              highway: [tertiary, primary_link, secondary_link, tertiary_link]
+        include_when:
+          highway: [motorway, trunk, primary, secondary, tertiary, unclassified, residential, living_street, service, motorway_link, trunk_link, primary_link, secondary_link, tertiary_link]
+        attributes:
+          - key: osm_id
+            value: "${feature.id}"
+          - key: highway
+          - key: name
+          - key: lanes
+          - key: oneway
+          - key: maxspeed
+          - key: bridge
+  - id: signals
+    features:
+      - source: osm
+        geometry: point
+        min_zoom: 12
+        include_when:
+          highway: traffic_signals
+        attributes:
+          - key: osm_id
+            value: "${feature.id}"

@@ -5,3 +5,4 @@ PROJECT_SPECS.md
 backend/.venv/
 __pycache__/
 data/
+tools/
