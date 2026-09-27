@@ -1,0 +1,7 @@
+CLAUDE.md
+PLAN.md
+SCORING.md
+PROJECT_SPECS.md
+backend/.venv/
+__pycache__/
+data/
