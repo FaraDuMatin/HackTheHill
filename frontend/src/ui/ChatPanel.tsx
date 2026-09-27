@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { Bot, ChevronDown, Loader2, Send } from 'lucide-react'
 import { askAgent, type AgentAction, type ChatMessage } from '../agent/api'
 import { describeEdit } from '../scenario/fold'
+import { useI18n, type T } from '../i18n'
 import type { BBox } from '../sim/api'
 
-const EXAMPLES = ['Close the Portage Bridge', 'Add a traffic light at Rue Laurier and Rue Victoria', 'Simulate the area']
 
 interface Entry extends ChatMessage {
   actions?: string[]
@@ -17,13 +17,14 @@ interface Props {
   onActions: (actions: AgentAction[]) => void
 }
 
-function actionLabel(a: AgentAction) {
-  if (a.type === 'edit') return describeEdit(a.edit)
-  if (a.type === 'select_area') return 'Selected simulation area'
-  return 'Started simulation'
+function actionLabel(a: AgentAction, t: T) {
+  if (a.type === 'edit') return describeEdit(a.edit, t)
+  if (a.type === 'select_area') return t('actSelectArea')
+  return t('actRun')
 }
 
 export default function ChatPanel({ area, edits, onActions }: Props) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(true)
   const [log, setLog] = useState<Entry[]>([])
   const [input, setInput] = useState('')
@@ -44,7 +45,7 @@ export default function ChatPanel({ area, edits, onActions }: Props) {
     try {
       const { reply, actions } = await askAgent(message, history, area, edits)
       onActions(actions)
-      setLog((l) => [...l, { role: 'assistant', content: reply || 'Done.', actions: actions.map(actionLabel) }])
+      setLog((l) => [...l, { role: 'assistant', content: reply || t('done'), actions: actions.map((a) => actionLabel(a, t)) }])
     } catch (e) {
       setLog((l) => [...l, { role: 'assistant', content: e instanceof Error ? e.message : String(e), error: true }])
     } finally {
@@ -54,19 +55,19 @@ export default function ChatPanel({ area, edits, onActions }: Props) {
 
   if (!open) {
     return (
-      <button className="chat-toggle" onClick={() => setOpen(true)} aria-label="Open AI assistant">
-        <Bot size={18} /> AI assistant
+      <button className="chat-toggle" onClick={() => setOpen(true)} aria-label={t('openAi')}>
+        <Bot size={18} /> {t('aiAssistant')}
       </button>
     )
   }
 
   return (
-    <section className="chat" aria-label="AI assistant">
+    <section className="chat" aria-labelledby="chat-h">
       <header>
         <Bot size={16} />
-        <h2>AI assistant</h2>
-        <span className="muted small">local · open source</span>
-        <button className="icon" onClick={() => setOpen(false)} aria-label="Minimize AI assistant">
+        <h2 id="chat-h">{t('aiAssistant')}</h2>
+        <span className="muted small">{t('aiLocal')}</span>
+        <button className="icon" onClick={() => setOpen(false)} aria-label={t('minimizeAi')}>
           <ChevronDown size={16} />
         </button>
       </header>
@@ -74,8 +75,8 @@ export default function ChatPanel({ area, edits, onActions }: Props) {
       <ol className="chat-log" ref={listRef} aria-live="polite">
         {!log.length && (
           <li className="chat-empty">
-            <p className="muted small">Describe a change. Every AI edit appears in the edit list and can be reverted.</p>
-            {EXAMPLES.map((ex) => (
+            <p className="muted small">{t('aiIntro')}</p>
+            {[t('aiEx1'), t('aiEx2'), t('aiEx3')].map((ex) => (
               <button key={ex} className="chip" onClick={() => send(ex)}>
                 {ex}
               </button>
@@ -84,7 +85,7 @@ export default function ChatPanel({ area, edits, onActions }: Props) {
         )}
         {log.map((e, i) => (
           <li key={i} className={`msg ${e.role}${e.error ? ' error' : ''}`}>
-            <span className="sr-label">{e.role === 'user' ? 'You:' : 'Assistant:'}</span>
+            <span className="sr-label">{e.role === 'user' ? t('you') : t('assistant')}</span>
             <p>{e.content}</p>
             {!!e.actions?.length && (
               <ul className="msg-actions">
@@ -97,7 +98,7 @@ export default function ChatPanel({ area, edits, onActions }: Props) {
         ))}
         {busy && (
           <li className="msg assistant muted">
-            <Loader2 size={14} className="spin" /> Thinking…
+            <Loader2 size={14} className="spin" /> {t('thinking')}
           </li>
         )}
       </ol>
@@ -109,17 +110,17 @@ export default function ChatPanel({ area, edits, onActions }: Props) {
         }}
       >
         <label htmlFor="chat-input" className="sr-label">
-          Message the AI assistant
+          {t('aiInputLabel')}
         </label>
         <input
           id="chat-input"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="e.g. Close the Portage Bridge"
+          placeholder={t('aiPlaceholder')}
           disabled={busy}
           autoComplete="off"
         />
-        <button type="submit" disabled={busy || !input.trim()} aria-label="Send">
+        <button type="submit" disabled={busy || !input.trim()} aria-label={t('send')}>
           <Send size={16} />
         </button>
       </form>

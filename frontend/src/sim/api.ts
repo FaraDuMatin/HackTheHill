@@ -17,6 +17,7 @@ export interface Skipped {
   kind: 'block' | 'lanes' | 'add_signal' | 'remove_signal'
   way_id?: number
   key?: string
+  code: 'not_in_area' | 'no_junction' | 'no_signal' | 'has_signal'
   reason: string
 }
 

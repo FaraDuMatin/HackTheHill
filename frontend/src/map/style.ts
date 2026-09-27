@@ -45,13 +45,13 @@ export const mapStyle: StyleSpecification = {
     },
     {
       id: 'area-fill', type: 'fill', source: 'area',
-      paint: { 'fill-color': '#1f78b4', 'fill-opacity': 0.06 },
+      paint: { 'fill-color': '#0072B2', 'fill-opacity': 0.06 },
     },
     {
       id: 'roads-selected', type: 'line', source: 'city', 'source-layer': 'roads',
       filter: ['==', ['get', 'osm_id'], -1],
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': '#1f78b4', 'line-width': roadWidth(2.4), 'line-opacity': 0.55 },
+      paint: { 'line-color': '#0072B2', 'line-width': roadWidth(2.4), 'line-opacity': 0.55 },
     },
     {
       id: 'roads-casing', type: 'line', source: 'city', 'source-layer': 'roads',
@@ -67,12 +67,12 @@ export const mapStyle: StyleSpecification = {
       id: 'roads-lanes', type: 'line', source: 'city', 'source-layer': 'roads',
       filter: ['==', ['get', 'osm_id'], -1],
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': '#1f78b4', 'line-width': roadWidth(1) },
+      paint: { 'line-color': '#0072B2', 'line-width': roadWidth(1) },
     },
     {
       id: 'roads-blocked', type: 'line', source: 'city', 'source-layer': 'roads',
       filter: ['==', ['get', 'osm_id'], -1],
-      paint: { 'line-color': '#b2182b', 'line-width': roadWidth(1), 'line-dasharray': [1, 1] },
+      paint: { 'line-color': '#1a1a1a', 'line-width': roadWidth(1), 'line-dasharray': [1, 1] },
     },
     {
       id: 'signals', type: 'circle', source: 'signals', minzoom: 12,
@@ -80,7 +80,7 @@ export const mapStyle: StyleSpecification = {
     },
     {
       id: 'user-signals', type: 'circle', source: 'user-signals',
-      paint: { ...SIGNAL_PAINT, 'circle-stroke-color': '#1f78b4', 'circle-stroke-width': 3 },
+      paint: { ...SIGNAL_PAINT, 'circle-stroke-color': '#0072B2', 'circle-stroke-width': 3 },
     },
     {
       id: 'vehicles', type: 'circle', source: 'vehicles',
@@ -94,20 +94,20 @@ export const mapStyle: StyleSpecification = {
     {
       id: 'signal-selected', type: 'circle', source: 'signals',
       filter: ['==', ['get', 'osm_id'], -1],
-      paint: { 'circle-radius': 12, 'circle-color': 'transparent', 'circle-stroke-color': '#1f78b4', 'circle-stroke-width': 3 },
+      paint: { 'circle-radius': 12, 'circle-color': 'transparent', 'circle-stroke-color': '#0072B2', 'circle-stroke-width': 3 },
     },
     {
       id: 'user-signal-selected', type: 'circle', source: 'user-signals',
       filter: ['==', ['get', 'key'], ''],
-      paint: { 'circle-radius': 12, 'circle-color': 'transparent', 'circle-stroke-color': '#1f78b4', 'circle-stroke-width': 3 },
+      paint: { 'circle-radius': 12, 'circle-color': 'transparent', 'circle-stroke-color': '#0072B2', 'circle-stroke-width': 3 },
     },
     {
       id: 'area-line', type: 'line', source: 'area',
-      paint: { 'line-color': '#1f78b4', 'line-width': 2, 'line-dasharray': [3, 2] },
+      paint: { 'line-color': '#0072B2', 'line-width': 2, 'line-dasharray': [3, 2] },
     },
     {
       id: 'drag-ghost', type: 'circle', source: 'drag-ghost',
-      paint: { 'circle-radius': 9, 'circle-color': '#d7263d', 'circle-opacity': 0.7, 'circle-stroke-color': '#1f78b4', 'circle-stroke-width': 3 },
+      paint: { 'circle-radius': 9, 'circle-color': '#d7263d', 'circle-opacity': 0.7, 'circle-stroke-color': '#0072B2', 'circle-stroke-width': 3 },
     },
   ],
 }

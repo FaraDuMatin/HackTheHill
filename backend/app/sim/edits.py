@@ -58,7 +58,7 @@ def apply_scenario(base_net, scenario, out_net):
     for way in scenario.get("blocked", []):
         edges = by_way.get(str(way), [])
         if not edges:
-            skipped.append({"kind": "block", "way_id": way, "reason": NOT_IN_AREA})
+            skipped.append({"kind": "block", "way_id": way, "code": "not_in_area", "reason": NOT_IN_AREA})
         removed |= {e.getID() for e in edges}
     # netconvert may merge several OSM ways into one edge: report every way actually closed.
     affected_ways = sorted({int(w) for e in net.getEdges() if e.getID() in removed for w in _ways_of(e)})
@@ -67,26 +67,29 @@ def apply_scenario(base_net, scenario, out_net):
     for way, total in scenario.get("lanes", {}).items():
         edges = [e for e in by_way.get(str(way), []) if e.getID() not in removed]
         if not edges:
-            skipped.append({"kind": "lanes", "way_id": int(way), "reason": NOT_IN_AREA})
+            skipped.append({"kind": "lanes", "way_id": int(way), "code": "not_in_area", "reason": NOT_IN_AREA})
             continue
         two_way = any(e.getID().startswith("-") for e in edges) and any(not e.getID().startswith("-") for e in edges)
         per_dir = max(1, int(total) // 2) if two_way else max(1, int(total))
         lane_rows += [f'  <edge id="{e.getID()}" numLanes="{per_dir}"/>' for e in edges]
 
-    def junctions(items, want_signal, kind, reason):
+    def junctions(items, want_signal, kind, code, reason):
         found = {}
         for s in items:
             j = _nearest_junction(net, *s["at"])
             if j is None:
-                skipped.append({"kind": kind, "key": s["key"], "reason": "No intersection within 40 m in the simulated area"})
+                skipped.append({"kind": kind, "key": s["key"], "code": "no_junction",
+                                "reason": "No intersection within 40 m in the simulated area"})
             elif (j.getType() == "traffic_light") != want_signal:
-                skipped.append({"kind": kind, "key": s["key"], "reason": reason})
+                skipped.append({"kind": kind, "key": s["key"], "code": code, "reason": reason})
             else:
                 found[j.getID()] = s["key"]
         return found
 
-    tls_unset = junctions(scenario.get("signals_removed", []), True, "remove_signal", "No signal at this intersection in SUMO")
-    tls_set = junctions(scenario.get("signals_added", []), False, "add_signal", "Intersection already has a signal")
+    tls_unset = junctions(scenario.get("signals_removed", []), True, "remove_signal", "no_signal",
+                          "No signal at this intersection in SUMO")
+    tls_set = junctions(scenario.get("signals_added", []), False, "add_signal", "has_signal",
+                        "Intersection already has a signal")
     # A signal moved within the same intersection: no change.
     for j in set(tls_set) & set(tls_unset):
         del tls_set[j], tls_unset[j]

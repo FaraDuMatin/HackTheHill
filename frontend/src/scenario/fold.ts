@@ -1,3 +1,4 @@
+import type { T } from '../i18n'
 import type { Edit, ScenarioState } from './types'
 
 export function fold(edits: Edit[]): ScenarioState {
@@ -47,19 +48,21 @@ export function toBackend(s: ScenarioState) {
   }
 }
 
-export function describeEdit(e: Edit): string {
+export function describeEdit(e: Edit, t: T): string {
   switch (e.type) {
     case 'block_road':
-      return `Blocked ${e.name}`
+      return t('editBlock', { name: e.name })
     case 'unblock_road':
-      return `Unblocked ${e.name}`
+      return t('editUnblock', { name: e.name })
     case 'set_lanes':
-      return e.from == null ? `${e.name}: ${e.lanes} lanes` : `${e.name}: ${e.from} → ${e.lanes} lanes`
+      return e.from == null
+        ? t('editLanes', { name: e.name, lanes: e.lanes })
+        : t('editLanesFrom', { name: e.name, from: e.from, lanes: e.lanes })
     case 'add_signal':
-      return 'Added traffic signal'
+      return t('editAddSignal')
     case 'remove_signal':
-      return 'Removed traffic signal'
+      return t('editRemoveSignal')
     case 'move_signal':
-      return 'Moved traffic signal'
+      return t('editMoveSignal')
   }
 }

@@ -32,6 +32,7 @@ interface Props {
   area: BBox | null
   onArea: (bbox: BBox) => void
   onReady: (map: maplibregl.Map) => void
+  label: string
 }
 
 const bboxOf = (a: LngLat, b: LngLat): BBox => [
@@ -66,7 +67,7 @@ function toSelection(f: maplibregl.MapGeoJSONFeature): Selection {
     return {
       kind: 'road',
       wayId: p.osm_id,
-      name: p.name ?? 'Unnamed road',
+      name: p.name ?? '',
       highway: p.highway,
       lanes: Number(p.lanes) || (oneway ? 1 : 2),
       oneway,
@@ -77,14 +78,14 @@ function toSelection(f: maplibregl.MapGeoJSONFeature): Selection {
   return { kind: 'signal', key, at }
 }
 
-export default function MapView({ state, selection, mode, onSelect, onPlace, onMoveSignal, area, onArea, onReady }: Props) {
+export default function MapView({ state, selection, mode, onSelect, onPlace, onMoveSignal, area, onArea, onReady, label }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const [loaded, setLoaded] = useState(false)
   // Latest props for map event handlers registered once.
-  const live = useRef({ mode, onSelect, onPlace, onMoveSignal, onArea, onReady })
+  const live = useRef({ mode, onSelect, onPlace, onMoveSignal, onArea, onReady, area })
   useEffect(() => {
-    live.current = { mode, onSelect, onPlace, onMoveSignal, onArea, onReady }
+    live.current = { mode, onSelect, onPlace, onMoveSignal, onArea, onReady, area }
   })
 
   useEffect(() => {
@@ -94,6 +95,7 @@ export default function MapView({ state, selection, mode, onSelect, onPlace, onM
       center: [-75.715, 45.42],
       zoom: 14,
       maxBounds: [[-76.1, 45.1], [-75.25, 45.65]],
+      canvasContextAttributes: { preserveDrawingBuffer: true }, // for the proposal snapshot
     })
     mapRef.current = map
     map.addControl(new maplibregl.NavigationControl(), 'top-right')
@@ -107,6 +109,17 @@ export default function MapView({ state, selection, mode, onSelect, onPlace, onM
       if (mode === 'select-area') return
       if (mode !== 'select') return onPlace([e.lngLat.lng, e.lngLat.lat])
       const [f] = map.queryRenderedFeatures(hitBox(e.point), { layers: CLICKABLE })
+      onSelect(f ? toSelection(f) : null)
+    })
+
+    // Keyboard: Enter acts on the map centre (crosshair shown while the map has focus).
+    map.getCanvas().addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return
+      const { mode, onSelect, onPlace } = live.current
+      const c = map.getCenter()
+      if (mode === 'select-area') return
+      if (mode !== 'select') return onPlace([c.lng, c.lat])
+      const [f] = map.queryRenderedFeatures(hitBox(map.project(c)), { layers: CLICKABLE })
       onSelect(f ? toSelection(f) : null)
     })
 
@@ -149,22 +162,31 @@ export default function MapView({ state, selection, mode, onSelect, onPlace, onM
       else if (map.queryRenderedFeatures(hitBox(e.point), { layers: ['roads'] }).length) cursor('pointer')
       else cursor('')
     })
-    map.on('mouseup', (e) => {
+    // Finish drags on window mouseup: the pointer may be released over the sidebar or chat.
+    const onUp = (ev: MouseEvent) => {
+      if (!areaDrag && !drag) return
+      const rect = map.getCanvas().getBoundingClientRect()
+      const point = new maplibregl.Point(ev.clientX - rect.left, ev.clientY - rect.top)
+      const ll = map.unproject(point)
       if (areaDrag) {
         const a = areaDrag
         areaDrag = null
-        if (a.startPx.dist(e.point) > DRAG_PX * 4) live.current.onArea(bboxOf(a.start, [e.lngLat.lng, e.lngLat.lat]))
+        if (a.startPx.dist(point) > DRAG_PX * 4) live.current.onArea(bboxOf(a.start, [ll.lng, ll.lat]))
+        else setArea(live.current.area) // a click, not a drag: keep the previous area
         return
       }
-      if (!drag) return
-      const d = drag
+      const d = drag!
       drag = null
       setGhost(null)
       cursor('grab')
-      if (d.moved) live.current.onMoveSignal(d.key, d.from, [e.lngLat.lng, e.lngLat.lat])
-    })
+      if (d.moved) live.current.onMoveSignal(d.key, d.from, [ll.lng, ll.lat])
+    }
+    window.addEventListener('mouseup', onUp)
 
-    return () => map.remove()
+    return () => {
+      window.removeEventListener('mouseup', onUp)
+      map.remove()
+    }
   }, [])
 
   useEffect(() => {
@@ -202,12 +224,14 @@ export default function MapView({ state, selection, mode, onSelect, onPlace, onM
     map.setFilter('user-signal-selected', ['==', ['get', 'key'], sig])
   }, [state, selection, loaded])
 
+  useEffect(() => {
+    mapRef.current?.getCanvas().setAttribute('aria-label', label)
+  }, [label, loaded])
+
   return (
-    <div
-      ref={container}
-      role="application"
-      aria-label="Map of Ottawa-Gatineau roads"
-      style={{ position: 'absolute', inset: 0 }}
-    />
+    <div id="map" className="map-root">
+      <div ref={container} style={{ position: 'absolute', inset: 0 }} />
+      <div className="crosshair" aria-hidden />
+    </div>
   )
 }

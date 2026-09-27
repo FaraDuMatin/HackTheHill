@@ -1,7 +1,8 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
-import { Ban, CircleCheck, CirclePlus, Minus, MousePointer2, Move, Plus, Redo2, Trash2, Undo2, X } from 'lucide-react'
+import { Ban, CircleCheck, CirclePlus, Keyboard, Minus, MousePointer2, Move, Plus, Redo2, Trash2, Undo2, X } from 'lucide-react'
 import { describeEdit } from '../scenario/fold'
 import type { Edit, Mode, Selection } from '../scenario/types'
+import { useI18n, type Key } from '../i18n'
 
 export const MIN_LANES = 1
 export const MAX_LANES = 8
@@ -27,14 +28,15 @@ interface Props {
   onUndo: () => void
   onRedo: () => void
   onMode: (m: Mode) => void
-  notice: string | null
+  onShortcuts: () => void
+  notice: Key | null
   simPanel: ReactNode
 }
 
-const HINTS: Record<Exclude<Mode, 'select'>, string> = {
-  'add-signal': 'Click an intersection to add a signal.',
-  'move-signal': 'Click the new signal location.',
-  'select-area': 'Drag a rectangle on the map.',
+const HINTS: Record<Exclude<Mode, 'select'>, Key> = {
+  'add-signal': 'hintAddSignal',
+  'move-signal': 'hintMoveSignal',
+  'select-area': 'hintSelectArea',
 }
 
 function Btn({ icon, label, kbd, ...rest }: { icon: ReactNode; label?: string; kbd?: string } & ButtonHTMLAttributes<HTMLButtonElement>) {
@@ -49,71 +51,83 @@ function Btn({ icon, label, kbd, ...rest }: { icon: ReactNode; label?: string; k
 
 export default function Sidebar(p: Props) {
   const { selection: sel, mode, actions } = p
+  const { t, lang, setLang } = useI18n()
 
   return (
-    <aside className="sidebar" aria-label="Scenario editor">
-      <h1>Ottawa-Gatineau Sandbox</h1>
+    <aside className="sidebar" aria-label={t('editor')}>
+      <header className="sidebar-head">
+        <h1>{t('appTitle')}</h1>
+        <div className="segmented small" role="radiogroup" aria-label={t('language')}>
+          {(['en', 'fr'] as const).map((l) => (
+            <button key={l} role="radio" aria-checked={lang === l} lang={l} onClick={() => setLang(l)}>
+              {l.toUpperCase()}
+            </button>
+          ))}
+        </div>
+        <button className="icon" onClick={p.onShortcuts} aria-label={t('shortcuts')} title={`${t('shortcuts')} (?)`}>
+          <Keyboard size={ICON} />
+        </button>
+      </header>
 
-      <div className="toolbar" role="toolbar" aria-label="Tools">
+      <div className="toolbar" role="toolbar" aria-label={t('tools')}>
         <Btn
           icon={<MousePointer2 size={ICON} />}
-          label="Select"
+          label={t('select')}
           kbd="1"
           aria-pressed={mode === 'select'}
           onClick={() => p.onMode('select')}
         />
         <Btn
           icon={<CirclePlus size={ICON} />}
-          label="Signal"
+          label={t('signal')}
           kbd="2"
           aria-pressed={mode === 'add-signal'}
           onClick={() => actions.toggleMode('add-signal')}
         />
         <span className="spacer" />
-        <Btn icon={<Undo2 size={ICON} />} aria-label="Undo" title="Undo (Ctrl+Z)" disabled={!p.canUndo} onClick={p.onUndo} />
-        <Btn icon={<Redo2 size={ICON} />} aria-label="Redo" title="Redo (Ctrl+Y)" disabled={!p.canRedo} onClick={p.onRedo} />
+        <Btn icon={<Undo2 size={ICON} />} aria-label={t('undo')} title={t('undoTitle')} disabled={!p.canUndo} onClick={p.onUndo} />
+        <Btn icon={<Redo2 size={ICON} />} aria-label={t('redo')} title={t('redoTitle')} disabled={!p.canRedo} onClick={p.onRedo} />
       </div>
 
       {mode !== 'select' && (
         <p className="hint" role="status">
-          {HINTS[mode]}{' '}
-          <kbd>Esc</kbd> to cancel.
+          {t(HINTS[mode])} <kbd>Esc</kbd> {t('escToCancel')}
         </p>
       )}
 
       {p.notice && (
         <p className="warn" role="alert">
-          {p.notice}
+          {t(p.notice)}
         </p>
       )}
 
       <section aria-labelledby="sel-h">
-        <h2 id="sel-h">Selection</h2>
-        {!sel && <p className="muted">Click a road or signal.</p>}
+        <h2 id="sel-h">{t('selection')}</h2>
+        {!sel && <p className="muted">{t('selectionEmpty')}</p>}
 
         {sel?.kind === 'road' && (
           <div className="card">
             <p>
-              <b>{sel.name}</b>
-              {p.blocked && <span className="tag tag-blocked">blocked</span>}
+              <b>{sel.name ?? t('unnamedRoad')}</b>
+              {p.blocked && <span className="tag tag-blocked">{t('blocked')}</span>}
             </p>
             <p className="muted">
               {sel.highway}
-              {sel.oneway ? ' · one-way' : ''}
+              {sel.oneway ? ` · ${t('oneway')}` : ''}
             </p>
             <div className="row">
               <Btn
                 icon={p.blocked ? <CircleCheck size={ICON} /> : <Ban size={ICON} />}
-                label={p.blocked ? 'Unblock' : 'Block'}
+                label={p.blocked ? t('unblock') : t('block')}
                 kbd="B"
                 onClick={actions.toggleBlock}
               />
             </div>
-            <div className="row" role="group" aria-label="Lane count">
-              <span className="row-label">Lanes</span>
+            <div className="row" role="group" aria-label={t('laneCount')}>
+              <span className="row-label">{t('lanes')}</span>
               <Btn
                 icon={<Minus size={ICON} />}
-                aria-label="Remove a lane"
+                aria-label={t('removeLane')}
                 kbd="["
                 disabled={p.lanes <= MIN_LANES}
                 onClick={() => actions.setLanes(p.lanes - 1)}
@@ -121,7 +135,7 @@ export default function Sidebar(p: Props) {
               <output aria-live="polite">{p.lanes}</output>
               <Btn
                 icon={<Plus size={ICON} />}
-                aria-label="Add a lane"
+                aria-label={t('addLane')}
                 kbd="]"
                 disabled={p.lanes >= MAX_LANES}
                 onClick={() => actions.setLanes(p.lanes + 1)}
@@ -133,37 +147,44 @@ export default function Sidebar(p: Props) {
         {sel?.kind === 'signal' && (
           <div className="card">
             <p>
-              <b>Traffic signal</b>
-              {sel.key.startsWith('new:') && <span className="tag">added</span>}
+              <b>{t('trafficSignal')}</b>
+              {sel.key.startsWith('new:') && <span className="tag">{t('added')}</span>}
             </p>
             <div className="row">
               <Btn
                 icon={<Move size={ICON} />}
-                label="Move"
+                label={t('move')}
                 kbd="M"
                 aria-pressed={mode === 'move-signal'}
                 onClick={() => actions.toggleMode('move-signal')}
               />
-              <Btn icon={<Trash2 size={ICON} />} label="Remove" kbd="Del" onClick={actions.removeSignal} />
+              <Btn icon={<Trash2 size={ICON} />} label={t('remove')} kbd="Del" onClick={actions.removeSignal} />
             </div>
-            <p className="muted small">Tip: drag a signal to move it.</p>
+            <p className="muted small">{t('dragTip')}</p>
           </div>
         )}
       </section>
 
       <section aria-labelledby="edits-h">
-        <h2 id="edits-h">Edits ({p.edits.length})</h2>
-        {!p.edits.length && <p className="muted">No edits yet.</p>}
+        <h2 id="edits-h">
+          {t('edits')} ({p.edits.length})
+        </h2>
+        {!p.edits.length && <p className="muted">{t('noEdits')}</p>}
         <ol className="edits">
           {p.edits.map((e, i) => (
             <li key={i}>
-              <span>{describeEdit(e)}</span>
+              <span>{describeEdit(e, t)}</span>
               {e.by === 'ai' && (
-                <span className="tag" title="Made by the AI assistant">
+                <span className="tag" title={t('byAi')}>
                   AI
                 </span>
               )}
-              <button className="icon" aria-label={`Revert: ${describeEdit(e)}`} title="Revert" onClick={() => p.onRemoveEdit(i)}>
+              <button
+                className="icon"
+                aria-label={t('revertLabel', { edit: describeEdit(e, t) })}
+                title={t('revert')}
+                onClick={() => p.onRemoveEdit(i)}
+              >
                 <X size={14} />
               </button>
             </li>

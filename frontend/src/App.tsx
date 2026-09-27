@@ -4,6 +4,9 @@ import MapView from './map/MapView'
 import Sidebar, { MAX_LANES, MIN_LANES, type Actions } from './ui/Sidebar'
 import SimPanel from './ui/SimPanel'
 import ChatPanel from './ui/ChatPanel'
+import ShortcutsDialog from './ui/ShortcutsDialog'
+import { snapshot, writeProposal } from './export/proposal'
+import { useI18n, type Key } from './i18n'
 import type { AgentAction } from './agent/api'
 import { useScenario } from './scenario/useScenario'
 import { describeEdit, fold, toBackend } from './scenario/fold'
@@ -25,7 +28,9 @@ export default function App() {
   const [selection, setSelection] = useState<Selection | null>(null)
   const [mode, setMode] = useState<Mode>('select')
   const [area, setArea] = useState<BBox | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
+  const [notice, setNotice] = useState<Key | null>(null)
+  const [showShortcuts, setShowShortcuts] = useState(false)
+  const { t, lang } = useI18n()
   const [map, setMap] = useState<maplibregl.Map | null>(null)
 
   const road = selection?.kind === 'road' ? selection : null
@@ -50,7 +55,7 @@ export default function App() {
   const snapSignal = async (at: LngLat): Promise<LngLat | null> => {
     try {
       const snapped = await snap(at)
-      if (!snapped) setNotice('No intersection within 30 m. Signals must be on an intersection.')
+      if (!snapped) setNotice('noIntersection')
       return snapped
     } catch {
       return at // backend unreachable: keep the point, the simulation will report it if invalid
@@ -60,11 +65,11 @@ export default function App() {
   const actions: Actions = {
     toggleBlock: () => {
       if (!road) return
-      scenario.apply({ type: blocked ? 'unblock_road' : 'block_road', wayIds: [road.wayId], name: road.name })
+      scenario.apply({ type: blocked ? 'unblock_road' : 'block_road', wayIds: [road.wayId], name: road.name || t('unnamedRoad') })
     },
     setLanes: (n) => {
       if (!road || n < MIN_LANES || n > MAX_LANES) return
-      scenario.apply({ type: 'set_lanes', wayIds: [road.wayId], name: road.name, from: lanes, lanes: n })
+      scenario.apply({ type: 'set_lanes', wayIds: [road.wayId], name: road.name || t('unnamedRoad'), from: lanes, lanes: n })
     },
     removeSignal: () => {
       if (!signal) return
@@ -112,6 +117,13 @@ export default function App() {
     }
   }
 
+  const exportProposal = () => {
+    if (sim.kind !== 'done' || !sim.job.result || !map) return
+    const image = snapshot(map)
+    const w = window.open('', '_blank') // inside the click, so popup blockers allow it
+    if (w) writeProposal(w, { lang, t, image, edits: scenario.edits, result: sim.job.result })
+  }
+
   const pickArea = (bbox: BBox) => {
     setArea(bbox)
     setMode('select')
@@ -122,7 +134,9 @@ export default function App() {
       if (e.ctrlKey || e.metaKey || e.altKey) return
       if ((e.target as HTMLElement).closest('input, textarea, select')) return
       const k = e.key.toLowerCase()
-      if (k === 'escape') {
+      if (k === '?') setShowShortcuts((v) => !v)
+      else if (showShortcuts) return
+      else if (k === 'escape') {
         if (mode !== 'select') setMode('select')
         else setSelection(null)
       } else if (k === '1' || k === 'v') setMode('select')
@@ -143,6 +157,16 @@ export default function App() {
 
   return (
     <>
+      <a
+        className="skip-link"
+        href="#map"
+        onClick={(e) => {
+          e.preventDefault()
+          map?.getCanvas().focus()
+        }}
+      >
+        {t('skipToMap')}
+      </a>
       <MapView
         state={scenario.state}
         selection={selection}
@@ -153,6 +177,7 @@ export default function App() {
         area={area}
         onArea={pickArea}
         onReady={setMap}
+        label={t('mapLabel')}
       />
       <Sidebar
         edits={scenario.edits}
@@ -164,6 +189,7 @@ export default function App() {
         canRedo={scenario.canRedo}
         actions={actions}
         notice={notice}
+        onShortcuts={() => setShowShortcuts(true)}
         onRemoveEdit={scenario.remove}
         onUndo={scenario.undo}
         onRedo={scenario.redo}
@@ -179,11 +205,13 @@ export default function App() {
             edits={scenario.edits}
             onSelectArea={() => actions.toggleMode('select-area')}
             onRun={runSim}
+            onExport={exportProposal}
             map={map}
           />
         }
       />
-      <ChatPanel area={area} edits={scenario.edits.map(describeEdit)} onActions={applyAgentActions} />
+      <ChatPanel area={area} edits={scenario.edits.map((e) => describeEdit(e, t))} onActions={applyAgentActions} />
+      {showShortcuts && <ShortcutsDialog onClose={() => setShowShortcuts(false)} />}
     </>
   )
 }
