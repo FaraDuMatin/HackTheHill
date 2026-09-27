@@ -10,6 +10,8 @@ from pathlib import Path
 
 import osmium
 
+from signals import build_signals
+
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 BBOX = (45.21, -75.95, 45.532, -75.4)  # south, west, north, east (extract bounds)
@@ -54,6 +56,8 @@ def main():
         f"--output={ROOT / 'frontend' / 'public' / 'tiles' / 'ottawa.pmtiles'}",
         "--maxzoom=14", "--force",
     ], check=True, cwd=ROOT)
+
+    build_signals(city, ROOT / "frontend" / "public" / "tiles" / "signals.geojson", DATA / "signal_flags.geojson")
 
 
 if __name__ == "__main__":

@@ -30,6 +30,7 @@ export const mapStyle: StyleSpecification = {
       url: 'pmtiles:///tiles/ottawa.pmtiles',
       attribution: '© OpenStreetMap contributors',
     },
+    signals: { type: 'geojson', data: '/tiles/signals.geojson' },
     'user-signals': { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
     'drag-ghost': { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
   },
@@ -67,7 +68,7 @@ export const mapStyle: StyleSpecification = {
       paint: { 'line-color': '#b2182b', 'line-width': roadWidth(1), 'line-dasharray': [1, 1] },
     },
     {
-      id: 'signals', type: 'circle', source: 'city', 'source-layer': 'signals',
+      id: 'signals', type: 'circle', source: 'signals', minzoom: 12,
       paint: SIGNAL_PAINT,
     },
     {
@@ -75,7 +76,7 @@ export const mapStyle: StyleSpecification = {
       paint: { ...SIGNAL_PAINT, 'circle-stroke-color': '#1f78b4', 'circle-stroke-width': 3 },
     },
     {
-      id: 'signal-selected', type: 'circle', source: 'city', 'source-layer': 'signals',
+      id: 'signal-selected', type: 'circle', source: 'signals',
       filter: ['==', ['get', 'osm_id'], -1],
       paint: { 'circle-radius': 12, 'circle-color': 'transparent', 'circle-stroke-color': '#1f78b4', 'circle-stroke-width': 3 },
     },
