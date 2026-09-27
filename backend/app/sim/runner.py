@@ -5,6 +5,7 @@ cached in data/areas/<key>/. Each job gets its own data/runs/<job id>/.
 """
 import json
 import math
+import shutil
 import threading
 import time
 import uuid
@@ -17,7 +18,7 @@ from .pipeline import SimError, build_net, filter_trips, make_trips, run_sumo
 
 MAX_AREA_KM2 = 25
 # Bump when the network/demand pipeline changes so cached areas are rebuilt.
-CACHE_VERSION = 3
+CACHE_VERSION = 4
 AREAS = DATA / "areas"
 RUNS = DATA / "runs"
 
@@ -61,7 +62,13 @@ def status(job_id):
     job = _jobs.get(job_id)
     if job is None:
         return None
-    return {**{k: v for k, v in job.items() if k != "started"}, "elapsed_s": round(time.time() - job["started"], 1)}
+    public = {k: v for k, v in job.items() if k not in ("started", "replay")}
+    return {**public, "elapsed_s": round(time.time() - job["started"], 1)}
+
+
+def replay_path(job_id, which):
+    job = _jobs.get(job_id)
+    return (job.get("replay") or {}).get(which) if job else None
 
 
 def _run(job, bbox, scenario):
@@ -70,6 +77,7 @@ def _run(job, bbox, scenario):
         area = AREAS / key
         osm, base, trips = area / "area.osm", area / "base.net.xml", area / "trips.xml"
         baseline_json = area / "baseline.json"
+        baseline_replay = area / "baseline_replay.json.gz"
 
         # One build per area at a time; concurrent jobs on the same area wait here.
         with _area_locks[key]:
@@ -110,10 +118,16 @@ def _run(job, bbox, scenario):
             if baseline_f:
                 with _area_locks[key]:
                     if not baseline_json.exists():
-                        baseline_json.write_text(json.dumps(baseline_f.result()))
+                        result = baseline_f.result()
+                        shutil.copy(run_dir / "baseline" / "replay.json.gz", baseline_replay)
+                        baseline_json.write_text(json.dumps(result))
             baseline = json.loads(baseline_json.read_text())
             result_scenario = scenario_f.result() if scenario_f else baseline
 
+        job["replay"] = {
+            "baseline": baseline_replay,
+            "scenario": run_dir / "scenario" / "replay.json.gz" if scenario_f else baseline_replay,
+        }
         job["result"] = {"baseline": baseline, "scenario": result_scenario, "applied": applied, "area_km2": round(area_km2(bbox), 1)}
         job["status"] = "done"
     except SimError as e:

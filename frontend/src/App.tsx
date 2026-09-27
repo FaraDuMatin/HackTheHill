@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type * as maplibregl from 'maplibre-gl'
 import MapView from './map/MapView'
 import Sidebar, { MAX_LANES, MIN_LANES, type Actions } from './ui/Sidebar'
 import SimPanel from './ui/SimPanel'
@@ -23,6 +24,7 @@ export default function App() {
   const [mode, setMode] = useState<Mode>('select')
   const [area, setArea] = useState<BBox | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [map, setMap] = useState<maplibregl.Map | null>(null)
 
   const road = selection?.kind === 'road' ? selection : null
   const signal = selection?.kind === 'signal' ? selection : null
@@ -130,6 +132,7 @@ export default function App() {
         onMoveSignal={moveSignal}
         area={area}
         onArea={pickArea}
+        onReady={setMap}
       />
       <Sidebar
         edits={scenario.edits}
@@ -156,6 +159,7 @@ export default function App() {
             edits={scenario.edits}
             onSelectArea={() => actions.toggleMode('select-area')}
             onRun={runSim}
+            map={map}
           />
         }
       />

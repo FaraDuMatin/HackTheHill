@@ -1,4 +1,5 @@
 import type { StyleSpecification } from 'maplibre-gl'
+import { SPEED_STOPS } from '../sim/replay'
 
 const ROAD_COLOR = [
   'match', ['get', 'highway'],
@@ -34,6 +35,7 @@ export const mapStyle: StyleSpecification = {
     'user-signals': { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
     'drag-ghost': { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
     area: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
+    vehicles: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
   },
   layers: [
     { id: 'background', type: 'background', paint: { 'background-color': '#eceae4' } },
@@ -79,6 +81,15 @@ export const mapStyle: StyleSpecification = {
     {
       id: 'user-signals', type: 'circle', source: 'user-signals',
       paint: { ...SIGNAL_PAINT, 'circle-stroke-color': '#1f78b4', 'circle-stroke-width': 3 },
+    },
+    {
+      id: 'vehicles', type: 'circle', source: 'vehicles',
+      paint: {
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 2.5, 14, 4, 17, 7],
+        'circle-color': ['interpolate', ['linear'], ['get', 'speed'], ...SPEED_STOPS.flat()] as never,
+        'circle-stroke-color': '#ffffff',
+        'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 12, 0.5, 15, 1.5],
+      },
     },
     {
       id: 'signal-selected', type: 'circle', source: 'signals',

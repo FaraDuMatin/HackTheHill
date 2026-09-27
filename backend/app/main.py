@@ -1,6 +1,6 @@
 import threading
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel
 
 from .sim import runner
@@ -41,6 +41,15 @@ def job(job_id: str):
     if s is None:
         raise HTTPException(404, "Unknown job")
     return s
+
+
+@app.get("/api/jobs/{job_id}/replay/{which}")
+def replay(job_id: str, which: str):
+    """Gzipped vehicle trajectories (see sim/replay.py) for 'baseline' or 'scenario'."""
+    path = runner.replay_path(job_id, which)
+    if path is None or not path.exists():
+        raise HTTPException(404, "No replay")
+    return Response(path.read_bytes(), media_type="application/json", headers={"Content-Encoding": "gzip"})
 
 
 @app.get("/api/snap")

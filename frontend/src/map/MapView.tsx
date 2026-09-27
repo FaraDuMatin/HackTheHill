@@ -31,6 +31,7 @@ interface Props {
   onMoveSignal: (key: string, from: LngLat, to: LngLat) => void
   area: BBox | null
   onArea: (bbox: BBox) => void
+  onReady: (map: maplibregl.Map) => void
 }
 
 const bboxOf = (a: LngLat, b: LngLat): BBox => [
@@ -76,14 +77,14 @@ function toSelection(f: maplibregl.MapGeoJSONFeature): Selection {
   return { kind: 'signal', key, at }
 }
 
-export default function MapView({ state, selection, mode, onSelect, onPlace, onMoveSignal, area, onArea }: Props) {
+export default function MapView({ state, selection, mode, onSelect, onPlace, onMoveSignal, area, onArea, onReady }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const [loaded, setLoaded] = useState(false)
   // Latest props for map event handlers registered once.
-  const live = useRef({ mode, onSelect, onPlace, onMoveSignal, onArea })
+  const live = useRef({ mode, onSelect, onPlace, onMoveSignal, onArea, onReady })
   useEffect(() => {
-    live.current = { mode, onSelect, onPlace, onMoveSignal, onArea }
+    live.current = { mode, onSelect, onPlace, onMoveSignal, onArea, onReady }
   })
 
   useEffect(() => {
@@ -96,7 +97,10 @@ export default function MapView({ state, selection, mode, onSelect, onPlace, onM
     })
     mapRef.current = map
     map.addControl(new maplibregl.NavigationControl(), 'top-right')
-    map.on('load', () => setLoaded(true))
+    map.on('load', () => {
+      setLoaded(true)
+      live.current.onReady(map)
+    })
 
     map.on('click', (e) => {
       const { mode, onSelect, onPlace } = live.current

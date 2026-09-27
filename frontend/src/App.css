@@ -5,6 +5,7 @@
   bottom: 12px;
   width: 320px;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 16px;
   box-sizing: border-box;
   background: #fff;
@@ -287,4 +288,53 @@
 .disclaimer {
   color: #666;
   font-style: italic;
+}
+
+.replay h3 {
+  margin: 14px 0 6px;
+  font-size: 13px;
+}
+
+.segmented {
+  display: inline-flex;
+  border: 1px solid #bbb;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.sidebar .segmented button {
+  border: 0;
+  border-radius: 0;
+}
+
+.sidebar .segmented button[aria-checked='true'] {
+  background: #1f78b4;
+  color: #fff;
+}
+
+.timeline {
+  width: 100%;
+  margin: 6px 0 0;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  align-items: center;
+  color: #555;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid #fff;
+  box-shadow: 0 0 0 1px #ccc;
 }

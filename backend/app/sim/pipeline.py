@@ -8,6 +8,8 @@ from pathlib import Path
 import sumo
 import sumolib
 
+from .replay import FCD_PERIOD, build_replay
+
 SUMO_HOME = sumo.SUMO_HOME
 os.environ.setdefault("SUMO_HOME", SUMO_HOME)
 BIN = Path(sys.executable).parent
@@ -85,7 +87,7 @@ def run_sumo(net_path, trips_path, out_dir, seed=42, end=5400, demand_path=None)
     """demand_path: full demand file to count trips against (defaults to trips_path)."""
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    tripinfo, summary, stats = out / "tripinfo.xml", out / "summary.xml", out / "stats.xml"
+    tripinfo, summary, stats, fcd = (out / f for f in ("tripinfo.xml", "summary.xml", "stats.xml", "fcd.xml"))
     _run([
         BIN / "sumo",
         "-n", net_path, "-r", trips_path,
@@ -95,7 +97,11 @@ def run_sumo(net_path, trips_path, out_dir, seed=42, end=5400, demand_path=None)
         "--tripinfo-output", tripinfo,
         "--summary-output", summary,
         "--statistic-output", stats,
+        "--fcd-output", fcd, "--fcd-output.geo", "--fcd-output.attributes", "x,y,speed",
+        "--device.fcd.period", FCD_PERIOD,
     ])
+    build_replay(fcd, out / "replay.json.gz")
+    fcd.unlink()  # large; the compact replay is all we need
     return metrics(demand_path or trips_path, tripinfo, summary, stats)
 
 

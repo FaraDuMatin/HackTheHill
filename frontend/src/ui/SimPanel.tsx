@@ -3,6 +3,8 @@ import type { BBox, Metrics, Skipped } from '../sim/api'
 import type { SimState } from '../sim/useSimulation'
 import type { Edit } from '../scenario/types'
 import { describeEdit } from '../scenario/fold'
+import type * as maplibregl from 'maplibre-gl'
+import ReplayControls from './ReplayControls'
 
 const ICON = 16
 
@@ -16,6 +18,7 @@ interface Props {
   edits: Edit[]
   onSelectArea: () => void
   onRun: () => void
+  map: maplibregl.Map | null
 }
 
 type Row = { label: string; get: (m: Metrics) => number | null; fmt: (v: number) => string; higherIsBetter?: boolean; hint?: string }
@@ -155,6 +158,8 @@ export default function SimPanel(p: Props) {
               </ul>
             </div>
           )}
+
+          <ReplayControls key={p.sim.job.id} map={p.map} jobId={p.sim.job.id} />
 
           <p className="disclaimer small">
             Synthetic traffic ({p.sim.job.result.baseline.trips} random trips, 1 h). Relative before/after comparison, not a
