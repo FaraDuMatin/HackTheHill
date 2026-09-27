@@ -10,9 +10,16 @@ maplibregl.setWorkerUrl(workerUrl)
 const protocol = new Protocol()
 maplibregl.addProtocol('pmtiles', protocol.tile)
 
-const CLICKABLE = ['user-signals', 'signals', 'roads']
+const SIGNAL_LAYERS = ['user-signals', 'signals']
+const CLICKABLE = [...SIGNAL_LAYERS, 'roads']
 const NONE = -1
 const HIT_PX = 6 // click tolerance
+const DRAG_PX = 4 // movement before a press becomes a drag
+
+const hitBox = ({ x, y }: maplibregl.Point): [maplibregl.PointLike, maplibregl.PointLike] => [
+  [x - HIT_PX, y - HIT_PX],
+  [x + HIT_PX, y + HIT_PX],
+]
 
 interface Props {
   state: ScenarioState
@@ -20,6 +27,7 @@ interface Props {
   mode: Mode
   onSelect: (s: Selection | null) => void
   onPlace: (at: LngLat) => void
+  onMoveSignal: (key: string, from: LngLat, to: LngLat) => void
 }
 
 function toSelection(f: maplibregl.MapGeoJSONFeature): Selection {
@@ -40,14 +48,14 @@ function toSelection(f: maplibregl.MapGeoJSONFeature): Selection {
   return { kind: 'signal', key, at }
 }
 
-export default function MapView({ state, selection, mode, onSelect, onPlace }: Props) {
+export default function MapView({ state, selection, mode, onSelect, onPlace, onMoveSignal }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const [loaded, setLoaded] = useState(false)
   // Latest props for map event handlers registered once.
-  const live = useRef({ mode, onSelect, onPlace })
+  const live = useRef({ mode, onSelect, onPlace, onMoveSignal })
   useEffect(() => {
-    live.current = { mode, onSelect, onPlace }
+    live.current = { mode, onSelect, onPlace, onMoveSignal }
   })
 
   useEffect(() => {
@@ -65,19 +73,47 @@ export default function MapView({ state, selection, mode, onSelect, onPlace }: P
     map.on('click', (e) => {
       const { mode, onSelect, onPlace } = live.current
       if (mode !== 'select') return onPlace([e.lngLat.lng, e.lngLat.lat])
-      const { x, y } = e.point
-      const box: [maplibregl.PointLike, maplibregl.PointLike] = [[x - HIT_PX, y - HIT_PX], [x + HIT_PX, y + HIT_PX]]
-      const [f] = map.queryRenderedFeatures(box, { layers: CLICKABLE })
+      const [f] = map.queryRenderedFeatures(hitBox(e.point), { layers: CLICKABLE })
       onSelect(f ? toSelection(f) : null)
     })
-    for (const layer of CLICKABLE) {
-      map.on('mouseenter', layer, () => {
-        if (live.current.mode === 'select') map.getCanvas().style.cursor = 'pointer'
+
+    // Drag and drop signals.
+    let drag: { key: string; from: LngLat; start: maplibregl.Point; moved: boolean } | null = null
+    const setGhost = (at: LngLat | null) =>
+      (map.getSource('drag-ghost') as maplibregl.GeoJSONSource).setData({
+        type: 'FeatureCollection',
+        features: at ? [{ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: at } }] : [],
       })
-      map.on('mouseleave', layer, () => {
-        if (live.current.mode === 'select') map.getCanvas().style.cursor = ''
-      })
-    }
+    const cursor = (c: string) => (map.getCanvas().style.cursor = c)
+
+    map.on('mousedown', (e) => {
+      if (live.current.mode !== 'select') return
+      const [f] = map.queryRenderedFeatures(hitBox(e.point), { layers: SIGNAL_LAYERS })
+      if (!f) return
+      e.preventDefault() // keep the map from panning
+      const sel = toSelection(f) as Extract<Selection, { kind: 'signal' }>
+      drag = { key: sel.key, from: sel.at, start: e.point, moved: false }
+      cursor('grabbing')
+    })
+    map.on('mousemove', (e) => {
+      if (drag) {
+        drag.moved ||= drag.start.dist(e.point) > DRAG_PX
+        if (drag.moved) setGhost([e.lngLat.lng, e.lngLat.lat])
+        return
+      }
+      if (live.current.mode !== 'select') return
+      if (map.queryRenderedFeatures(hitBox(e.point), { layers: SIGNAL_LAYERS }).length) cursor('grab')
+      else if (map.queryRenderedFeatures(hitBox(e.point), { layers: ['roads'] }).length) cursor('pointer')
+      else cursor('')
+    })
+    map.on('mouseup', (e) => {
+      if (!drag) return
+      const d = drag
+      drag = null
+      setGhost(null)
+      cursor('grab')
+      if (d.moved) live.current.onMoveSignal(d.key, d.from, [e.lngLat.lng, e.lngLat.lat])
+    })
 
     return () => map.remove()
   }, [])

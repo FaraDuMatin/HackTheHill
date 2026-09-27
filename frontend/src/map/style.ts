@@ -31,6 +31,7 @@ export const mapStyle: StyleSpecification = {
       attribution: '© OpenStreetMap contributors',
     },
     'user-signals': { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
+    'drag-ghost': { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
   },
   layers: [
     { id: 'background', type: 'background', paint: { 'background-color': '#eceae4' } },
@@ -82,6 +83,10 @@ export const mapStyle: StyleSpecification = {
       id: 'user-signal-selected', type: 'circle', source: 'user-signals',
       filter: ['==', ['get', 'key'], ''],
       paint: { 'circle-radius': 12, 'circle-color': 'transparent', 'circle-stroke-color': '#1f78b4', 'circle-stroke-width': 3 },
+    },
+    {
+      id: 'drag-ghost', type: 'circle', source: 'drag-ghost',
+      paint: { 'circle-radius': 9, 'circle-color': '#d7263d', 'circle-opacity': 0.7, 'circle-stroke-color': '#1f78b4', 'circle-stroke-width': 3 },
     },
   ],
 }

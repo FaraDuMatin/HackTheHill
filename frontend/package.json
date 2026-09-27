@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "lucide-react": "^1.48.0",
     "maplibre-gl": "^6.11.2",
     "pmtiles": "^4.5.0",
     "react": "^19.2.8",

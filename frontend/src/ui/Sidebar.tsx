@@ -1,49 +1,75 @@
+import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import { Ban, CircleCheck, CirclePlus, Minus, MousePointer2, Move, Plus, Redo2, Trash2, Undo2, X } from 'lucide-react'
 import { describeEdit } from '../scenario/fold'
-import type { Edit, Mode, ScenarioState, Selection } from '../scenario/types'
+import type { Edit, Mode, Selection } from '../scenario/types'
 
-const MIN_LANES = 1
-const MAX_LANES = 8
+export const MIN_LANES = 1
+export const MAX_LANES = 8
+const ICON = 16
+
+export interface Actions {
+  toggleBlock: () => void
+  setLanes: (n: number) => void
+  removeSignal: () => void
+  toggleMode: (m: Mode) => void
+}
 
 interface Props {
   edits: Edit[]
-  state: ScenarioState
   selection: Selection | null
   mode: Mode
+  blocked: boolean
+  lanes: number
   canUndo: boolean
   canRedo: boolean
-  onApply: (e: Edit) => void
+  actions: Actions
   onRemoveEdit: (index: number) => void
   onUndo: () => void
   onRedo: () => void
   onMode: (m: Mode) => void
 }
 
+function Btn({ icon, label, kbd, ...rest }: { icon: ReactNode; label?: string; kbd?: string } & ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button {...rest} aria-keyshortcuts={kbd}>
+      {icon}
+      {label && <span>{label}</span>}
+      {kbd && <kbd>{kbd}</kbd>}
+    </button>
+  )
+}
+
 export default function Sidebar(p: Props) {
-  const { selection: sel, state, mode } = p
+  const { selection: sel, mode, actions } = p
 
   return (
     <aside className="sidebar" aria-label="Scenario editor">
       <h1>Ottawa-Gatineau Sandbox</h1>
 
-      <div className="toolbar" role="toolbar" aria-label="Edit tools">
-        <button
+      <div className="toolbar" role="toolbar" aria-label="Tools">
+        <Btn
+          icon={<MousePointer2 size={ICON} />}
+          label="Select"
+          kbd="1"
+          aria-pressed={mode === 'select'}
+          onClick={() => p.onMode('select')}
+        />
+        <Btn
+          icon={<CirclePlus size={ICON} />}
+          label="Signal"
+          kbd="2"
           aria-pressed={mode === 'add-signal'}
-          onClick={() => p.onMode(mode === 'add-signal' ? 'select' : 'add-signal')}
-        >
-          + Signal
-        </button>
-        <button onClick={p.onUndo} disabled={!p.canUndo} title="Undo (Ctrl+Z)">
-          Undo
-        </button>
-        <button onClick={p.onRedo} disabled={!p.canRedo} title="Redo (Ctrl+Y)">
-          Redo
-        </button>
+          onClick={() => actions.toggleMode('add-signal')}
+        />
+        <span className="spacer" />
+        <Btn icon={<Undo2 size={ICON} />} aria-label="Undo" title="Undo (Ctrl+Z)" disabled={!p.canUndo} onClick={p.onUndo} />
+        <Btn icon={<Redo2 size={ICON} />} aria-label="Redo" title="Redo (Ctrl+Y)" disabled={!p.canRedo} onClick={p.onRedo} />
       </div>
 
       {mode !== 'select' && (
         <p className="hint" role="status">
-          {mode === 'add-signal' ? 'Click an intersection to add a signal.' : 'Click the new signal location.'} Esc to
-          cancel.
+          {mode === 'add-signal' ? 'Click an intersection to add a signal.' : 'Click the new signal location.'}{' '}
+          <kbd>Esc</kbd> to cancel.
         </p>
       )}
 
@@ -51,20 +77,62 @@ export default function Sidebar(p: Props) {
         <h2 id="sel-h">Selection</h2>
         {!sel && <p className="muted">Click a road or signal.</p>}
 
-        {sel?.kind === 'road' && <RoadPanel sel={sel} state={state} onApply={p.onApply} />}
+        {sel?.kind === 'road' && (
+          <div className="card">
+            <p>
+              <b>{sel.name}</b>
+              {p.blocked && <span className="tag tag-blocked">blocked</span>}
+            </p>
+            <p className="muted">
+              {sel.highway}
+              {sel.oneway ? ' · one-way' : ''}
+            </p>
+            <div className="row">
+              <Btn
+                icon={p.blocked ? <CircleCheck size={ICON} /> : <Ban size={ICON} />}
+                label={p.blocked ? 'Unblock' : 'Block'}
+                kbd="B"
+                onClick={actions.toggleBlock}
+              />
+            </div>
+            <div className="row" role="group" aria-label="Lane count">
+              <span className="row-label">Lanes</span>
+              <Btn
+                icon={<Minus size={ICON} />}
+                aria-label="Remove a lane"
+                kbd="["
+                disabled={p.lanes <= MIN_LANES}
+                onClick={() => actions.setLanes(p.lanes - 1)}
+              />
+              <output aria-live="polite">{p.lanes}</output>
+              <Btn
+                icon={<Plus size={ICON} />}
+                aria-label="Add a lane"
+                kbd="]"
+                disabled={p.lanes >= MAX_LANES}
+                onClick={() => actions.setLanes(p.lanes + 1)}
+              />
+            </div>
+          </div>
+        )}
 
         {sel?.kind === 'signal' && (
-          <div>
+          <div className="card">
             <p>
               <b>Traffic signal</b>
               {sel.key.startsWith('new:') && <span className="tag">added</span>}
             </p>
             <div className="row">
-              <button aria-pressed={mode === 'move-signal'} onClick={() => p.onMode(mode === 'move-signal' ? 'select' : 'move-signal')}>
-                Move
-              </button>
-              <button onClick={() => p.onApply({ type: 'remove_signal', key: sel.key, at: sel.at })}>Remove</button>
+              <Btn
+                icon={<Move size={ICON} />}
+                label="Move"
+                kbd="M"
+                aria-pressed={mode === 'move-signal'}
+                onClick={() => actions.toggleMode('move-signal')}
+              />
+              <Btn icon={<Trash2 size={ICON} />} label="Remove" kbd="Del" onClick={actions.removeSignal} />
             </div>
+            <p className="muted small">Tip: drag a signal to move it.</p>
           </div>
         )}
       </section>
@@ -76,49 +144,13 @@ export default function Sidebar(p: Props) {
           {p.edits.map((e, i) => (
             <li key={i}>
               <span>{describeEdit(e)}</span>
-              <button className="icon" aria-label={`Revert: ${describeEdit(e)}`} onClick={() => p.onRemoveEdit(i)}>
-                ×
+              <button className="icon" aria-label={`Revert: ${describeEdit(e)}`} title="Revert" onClick={() => p.onRemoveEdit(i)}>
+                <X size={14} />
               </button>
             </li>
           ))}
         </ol>
       </section>
     </aside>
-  )
-}
-
-function RoadPanel({ sel, state, onApply }: { sel: Extract<Selection, { kind: 'road' }>; state: ScenarioState; onApply: (e: Edit) => void }) {
-  const blocked = state.blocked.includes(sel.wayId)
-  const lanes = state.lanes[sel.wayId] ?? sel.lanes
-  const setLanes = (n: number) => onApply({ type: 'set_lanes', wayId: sel.wayId, name: sel.name, from: lanes, lanes: n })
-
-  return (
-    <div>
-      <p>
-        <b>{sel.name}</b>
-        {blocked && <span className="tag tag-blocked">blocked</span>}
-      </p>
-      <p className="muted">
-        {sel.highway}
-        {sel.oneway ? ' · one-way' : ''}
-      </p>
-      <div className="row">
-        <button
-          onClick={() => onApply({ type: blocked ? 'unblock_road' : 'block_road', wayId: sel.wayId, name: sel.name })}
-        >
-          {blocked ? 'Unblock' : 'Block'}
-        </button>
-      </div>
-      <div className="row" role="group" aria-label="Lane count">
-        <span>Lanes</span>
-        <button aria-label="Remove a lane" disabled={lanes <= MIN_LANES} onClick={() => setLanes(lanes - 1)}>
-          −
-        </button>
-        <output aria-live="polite">{lanes}</output>
-        <button aria-label="Add a lane" disabled={lanes >= MAX_LANES} onClick={() => setLanes(lanes + 1)}>
-          +
-        </button>
-      </div>
-    </div>
   )
 }
