@@ -14,7 +14,7 @@ def extract_bbox(bbox, out_path, src=BASE_PBF):
     def inside(loc):
         return loc.valid() and west <= loc.lon <= east and south <= loc.lat <= north
 
-    with osmium.BackReferenceWriter(out_path, ref_src=src, overwrite=True) as writer:
+    with osmium.BackReferenceWriter(out_path, ref_src=src, overwrite=True, remove_tags=False) as writer:
         fp = osmium.FileProcessor(src, osmium.osm.NODE | osmium.osm.WAY).with_locations()
         for way in fp:
             if way.is_way() and "highway" in way.tags and any(inside(n.location) for n in way.nodes):

@@ -25,7 +25,7 @@ def build_net(osm_path, net_path):
         "--geometry.remove", "--roundabouts.guess", "--ramps.guess",
         "--junctions.join", "--tls.guess-signals", "--tls.discard-simple", "--tls.join",
         "--keep-edges.by-vclass", "passenger", "--remove-edges.isolated",
-        "--output.street-names", "--no-warnings",
+        "--output.street-names", "--output.original-names", "--no-warnings",
     ])
 
 

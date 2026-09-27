@@ -11,8 +11,10 @@ h11==0.16.0
 httptools==0.8.0
 idna==3.20
 osmium==4.3.1
+pmtiles==3.8.1
 pydantic==2.13.5
 pydantic_core==2.46.5
+pyproj==3.7.1
 python-dotenv==1.2.3
 PyYAML==6.0.3
 requests==2.34.2

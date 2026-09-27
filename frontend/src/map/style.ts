@@ -15,6 +15,13 @@ const roadWidth = (k: number) => [
   16, ['match', ['get', 'highway'], ['motorway', 'trunk'], 14 * k, ['primary', 'secondary'], 10 * k, ['service'], 3 * k, 6 * k],
 ] as never
 
+const SIGNAL_PAINT = {
+  'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 2, 17, 6] as never,
+  'circle-color': '#d7263d',
+  'circle-stroke-color': '#ffffff',
+  'circle-stroke-width': 1.5,
+}
+
 export const mapStyle: StyleSpecification = {
   version: 8,
   sources: {
@@ -23,12 +30,19 @@ export const mapStyle: StyleSpecification = {
       url: 'pmtiles:///tiles/ottawa.pmtiles',
       attribution: '© OpenStreetMap contributors',
     },
+    'user-signals': { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
   },
   layers: [
     { id: 'background', type: 'background', paint: { 'background-color': '#eceae4' } },
     {
       id: 'water', type: 'fill', source: 'city', 'source-layer': 'water',
       paint: { 'fill-color': '#a9cbe6' },
+    },
+    {
+      id: 'roads-selected', type: 'line', source: 'city', 'source-layer': 'roads',
+      filter: ['==', ['get', 'osm_id'], -1],
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': '#1f78b4', 'line-width': roadWidth(2.4), 'line-opacity': 0.55 },
     },
     {
       id: 'roads-casing', type: 'line', source: 'city', 'source-layer': 'roads',
@@ -41,13 +55,33 @@ export const mapStyle: StyleSpecification = {
       paint: { 'line-color': ROAD_COLOR as never, 'line-width': roadWidth(1) },
     },
     {
+      id: 'roads-lanes', type: 'line', source: 'city', 'source-layer': 'roads',
+      filter: ['==', ['get', 'osm_id'], -1],
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': '#1f78b4', 'line-width': roadWidth(1) },
+    },
+    {
+      id: 'roads-blocked', type: 'line', source: 'city', 'source-layer': 'roads',
+      filter: ['==', ['get', 'osm_id'], -1],
+      paint: { 'line-color': '#b2182b', 'line-width': roadWidth(1), 'line-dasharray': [1, 1] },
+    },
+    {
       id: 'signals', type: 'circle', source: 'city', 'source-layer': 'signals',
-      paint: {
-        'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 2, 17, 6],
-        'circle-color': '#d7263d',
-        'circle-stroke-color': '#ffffff',
-        'circle-stroke-width': 1.5,
-      },
+      paint: SIGNAL_PAINT,
+    },
+    {
+      id: 'user-signals', type: 'circle', source: 'user-signals',
+      paint: { ...SIGNAL_PAINT, 'circle-stroke-color': '#1f78b4', 'circle-stroke-width': 3 },
+    },
+    {
+      id: 'signal-selected', type: 'circle', source: 'city', 'source-layer': 'signals',
+      filter: ['==', ['get', 'osm_id'], -1],
+      paint: { 'circle-radius': 12, 'circle-color': 'transparent', 'circle-stroke-color': '#1f78b4', 'circle-stroke-width': 3 },
+    },
+    {
+      id: 'user-signal-selected', type: 'circle', source: 'user-signals',
+      filter: ['==', ['get', 'key'], ''],
+      paint: { 'circle-radius': 12, 'circle-color': 'transparent', 'circle-stroke-color': '#1f78b4', 'circle-stroke-width': 3 },
     },
   ],
 }
